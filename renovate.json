@@ -1,0 +1,63 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base",
+    ":semanticCommits",
+    ":semanticPrefixFix",
+    ":ignoreUnstable",
+    ":prNotPending",
+    ":preserveSemverRanges",
+    "group:recommended",
+    "group:monorepos"
+  ],
+  "timezone": "America/Sao_Paulo",
+  "schedule": ["after 10pm and before 5am every weekday", "every weekend"],
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchCurrentVersion": "!/^0/",
+      "automerge": true,
+      "automergeType": "branch"
+    },
+    {
+      "matchDepTypes": ["devDependencies"],
+      "automerge": true
+    },
+    {
+      "matchPackagePatterns": ["^@types/"],
+      "automerge": true,
+      "major": {
+        "automerge": false
+      }
+    },
+    {
+      "matchPackagePatterns": ["^kubernetes-"],
+      "groupName": "kubernetes packages",
+      "labels": ["k8s"]
+    },
+    {
+      "matchPackagePatterns": ["^@opentelemetry"],
+      "groupName": "opentelemetry packages",
+      "labels": ["telemetry"]
+    },
+    {
+      "matchPackagePatterns": ["^vault-"],
+      "groupName": "vault packages",
+      "labels": ["security"]
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "assignees": ["@team-security"]
+  },
+  "reviewers": ["team-maintainers"],
+  "assignees": ["team-maintainers"],
+  "separateMajorMinor": true,
+  "separateMultipleMajor": true,
+  "masterIssue": true,
+  "masterIssueTitle": "Dependencies Dashboard",
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 2,
+  "commitMessagePrefix": "chore(deps):"
+} 

@@ -1,0 +1,36 @@
+apiVersion: v2
+name: n8n-enterprise
+description: A Helm chart for N8N Enterprise Environment
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+maintainers:
+  - name: Team N8N
+    email: team@n8n.com
+
+dependencies:
+  - name: vault
+    version: "0.24.x"
+    repository: https://helm.releases.hashicorp.com
+    condition: vault.enabled
+  
+  - name: opentelemetry-collector
+    version: "0.47.x"
+    repository: https://open-telemetry.github.io/opentelemetry-helm-charts
+    condition: opentelemetry.enabled
+  
+  - name: jaeger
+    version: "0.71.x"
+    repository: https://jaegertracing.github.io/helm-charts
+    condition: jaeger.enabled
+  
+  - name: prometheus
+    version: "15.x.x"
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: prometheus.enabled
+  
+  - name: grafana
+    version: "6.x.x"
+    repository: https://grafana.github.io/helm-charts
+    condition: grafana.enabled 
