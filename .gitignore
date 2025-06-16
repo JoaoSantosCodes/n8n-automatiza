@@ -1,0 +1,75 @@
+# Ambiente
+.env
+.env.*
+!.env.example
+
+# Dados
+data/
+backups/
+logs/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker
+docker-compose.override.yml
+.docker/
+
+# SSL
+*.pem
+*.key
+*.crt
+*.csr
+*.srl
+
+# Logs
+*.log
+log/
+logs/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# IDEs e editores
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Temporários
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Certificados e secrets
+docker/nginx/ssl/
+docker/certs/
+*.pfx
+*.p12
+
+# Cache
+.cache/
+.npm/
+.yarn/
+
+# Build
+dist/
+build/
+out/
+
+# Métricas e monitoramento
+prometheus/data/
+grafana/data/
+elasticsearch/data/
+
+# Outros
+*.bak
+*.old
+*.orig
+.git/

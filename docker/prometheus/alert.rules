@@ -1,0 +1,47 @@
+groups:
+- name: n8n_alerts
+  rules:
+  - alert: N8nHighMemoryUsage
+    expr: process_resident_memory_bytes{job="n8n"} > 1.5e9  # 1.5GB
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High memory usage on n8n"
+      description: "n8n memory usage is above 1.5GB for more than 5 minutes"
+
+  - alert: N8nHighCPUUsage
+    expr: rate(process_cpu_seconds_total{job="n8n"}[5m]) * 100 > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High CPU usage on n8n"
+      description: "n8n CPU usage is above 80% for more than 5 minutes"
+
+  - alert: N8nHighErrorRate
+    expr: rate(n8n_workflow_executions_total{status="error"}[5m]) > 0.1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High error rate in n8n workflows"
+      description: "n8n is experiencing a high rate of workflow errors"
+
+  - alert: PostgresHighDiskUsage
+    expr: (1 - node_filesystem_avail_bytes{mountpoint="/var/lib/postgresql/data"} / node_filesystem_size_bytes{mountpoint="/var/lib/postgresql/data"}) * 100 > 85
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High disk usage on PostgreSQL"
+      description: "PostgreSQL disk usage is above 85%"
+
+  - alert: RedisHighMemoryUsage
+    expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High memory usage on Redis"
+      description: "Redis memory usage is above 80%" 

@@ -1,0 +1,30 @@
+{
+  "downtime": {
+    "telegram": {
+      "title": "🚨 Alerta de Downtime",
+      "template": "Site: {{url}}\nStatus: {{statusCode}}\nTempo de Resposta: {{responseTime}}ms\nHorário: {{timestamp}}\nDetalhes: {{error}}\n\nÚltimo Status: {{lastStatus}}"
+    },
+    "email": {
+      "subject": "🚨 Site {{url}} está fora do ar",
+      "template": "<h2>Alerta de Downtime</h2><p><strong>Site:</strong> {{url}}</p><p><strong>Status:</strong> {{statusCode}}</p><p><strong>Tempo de Resposta:</strong> {{responseTime}}ms</p><p><strong>Horário:</strong> {{timestamp}}</p><p><strong>Detalhes:</strong> {{error}}</p>"
+    }
+  },
+  "performance": {
+    "telegram": {
+      "title": "⚠️ Alerta de Performance",
+      "template": "Site: {{url}}\nTempo de Resposta: {{responseTime}}ms\nLimite: {{threshold}}ms\nHorário: {{timestamp}}"
+    }
+  },
+  "ssl": {
+    "telegram": {
+      "title": "🔒 Alerta de SSL",
+      "template": "Site: {{url}}\nCertificado expira em: {{daysToExpire}} dias\nHorário: {{timestamp}}"
+    }
+  },
+  "recovery": {
+    "telegram": {
+      "title": "✅ Serviço Recuperado",
+      "template": "Site: {{url}}\nStatus: {{statusCode}}\nTempo de Resposta: {{responseTime}}ms\nHorário: {{timestamp}}\nTempo de Downtime: {{downtimeDuration}}"
+    }
+  }
+} 

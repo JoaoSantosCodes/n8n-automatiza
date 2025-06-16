@@ -1,0 +1,6 @@
+# Format: URL|Timeout(ms)|Expected Status|Check SSL|Check Content
+https://codigofonte.tv|5000|200|true|Código Fonte TV
+https://compilado.codigofonte.com.br|5000|200|true|Compilado
+https://pesquisa.codigofonte.com.br|5000|200|true|Pesquisa
+https://codigofonte.network|5000|200|true|Network
+https://pesquisa.codigofonte.com.br/2026|5000|200|true|Pesquisa 2026 

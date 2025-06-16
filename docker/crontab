@@ -1,0 +1,17 @@
+# Executar manutenção todos os dias às 3 da manhã
+0 3 * * * /scripts/maintenance.sh >> /var/log/cron.log 2>&1
+
+# Verificar certificados SSL semanalmente
+0 4 * * 0 certbot renew --quiet
+
+# Limpar logs antigos semanalmente
+0 5 * * 0 find /var/log -name "*.log" -type f -mtime +7 -delete
+
+# Backup diário às 2 da manhã
+0 2 * * * /scripts/backup.sh >> /var/log/backup.log 2>&1
+
+# Verificar atualizações do n8n diariamente
+0 6 * * * docker-compose pull n8n >> /var/log/updates.log 2>&1
+
+# Monitorar espaço em disco a cada 6 horas
+0 */6 * * * df -h >> /var/log/disk_usage.log 2>&1 

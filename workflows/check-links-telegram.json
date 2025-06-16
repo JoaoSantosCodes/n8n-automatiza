@@ -1,0 +1,231 @@
+{
+  "name": "Status Sites",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        }
+      },
+      "name": "Cron",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [200, -320],
+      "id": "8d7c6b4a-1593-4668-9c6d-fe82362eba97"
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $json.arquivo_links }}",
+        "dataPropertyName": "links"
+      },
+      "name": "Read File",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [540, -320],
+      "id": "79817c93-d6b9-4ba2-a427-b8b47de07996",
+      "notesInFlow": false,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "functionCode": "const data = Buffer.from(items[0].binary.links.data, 'base64').toString('utf8');\nconst lines = data.split(/\\r?\\n/).filter(line => line.trim() !== '');\nreturn lines.map(url => ({ json: { url } }));"
+      },
+      "name": "Parse URLs",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [740, -320],
+      "id": "cea3cfff-3d26-46d5-9368-dcee40cd0a7e",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "url": "={{$json[\"url\"]}}",
+        "responseFormat": "string",
+        "options": {
+          "fullResponse": true
+        }
+      },
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [940, -320],
+      "id": "300da611-c8d7-4bb2-b7f2-7eeb746e3656",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json[\"statusCode\"]}}",
+              "operation": "notEqual",
+              "value2": 200
+            }
+          ]
+        }
+      },
+      "name": "Check Status",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1200, -300],
+      "id": "528e5a39-74ba-4517-9d92-6f5169692d6e"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Config').item.json.telegram_chat_id }}",
+        "text": "=Alerta!\n\nO link {{$json[\"url\"]}} está fora do ar em {{$now.format(\"yyyy-MM-dd HH:mm:ss\")}}",
+        "additionalFields": {}
+      },
+      "name": "Send Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1420, -420],
+      "id": "591e0d36-e903-43c7-9ba5-85f8ef5af807",
+      "webhookId": "1e45469c-8b29-4958-a5d9-9c530b84511d",
+      "credentials": {
+        "telegramApi": {
+          "id": "3T2VCiKpxC7o5YRw",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ae36d2c0-95d3-4800-a138-149783e1ddd8",
+              "name": "arquivo_links",
+              "value": "/home/data/meus-links.txt",
+              "type": "string"
+            },
+            {
+              "id": "b9e28816-e720-4e8a-8867-ba236b7dfda5",
+              "name": "telegram_chat_id",
+              "value": "924597378",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [360, -320],
+      "id": "7f614d05-5a42-4790-b1b2-fb8e15629ce2",
+      "name": "Config"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node[\"Config\"].parameter.assignments.assignments[1]['value'] }}",
+        "text": "=Alerta!\n\nNão foi possível acessar o arquivo com a lista de URLs.",
+        "additionalFields": {}
+      },
+      "name": "Send Telegram 2",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [740, -120],
+      "id": "5a9bf336-07f9-457e-b278-7860f93e874b",
+      "webhookId": "1e45469c-8b29-4958-a5d9-9c530b84511d",
+      "credentials": {
+        "telegramApi": {
+          "id": "3T2VCiKpxC7o5YRw",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Cron": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read File": {
+      "main": [
+        [
+          {
+            "node": "Parse URLs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Telegram 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse URLs": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Check Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Status": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Read File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f157d003-c22e-43ae-8b55-2b64093ce969",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e7ae5058559c98900c804055fccef2c70f4912552d8617f6791a246c528929f2"
+  },
+  "id": "YLN6J3UuOrKNnsZ8",
+  "tags": []
+}

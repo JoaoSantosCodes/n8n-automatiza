@@ -1,0 +1,42 @@
+filebeat.inputs:
+- type: container
+  paths: 
+    - '/var/lib/docker/containers/*/*.log'
+  processors:
+    - add_docker_metadata:
+        host: "unix:///var/run/docker.sock"
+    - decode_json_fields:
+        fields: ["message"]
+        target: "json"
+        overwrite_keys: true
+
+- type: log
+  enabled: true
+  paths:
+    - /var/log/nginx/*.log
+    - /var/log/modsecurity/*.log
+    - /var/log/*.log
+
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+  - add_cloud_metadata: ~
+  - add_docker_metadata: ~
+  - add_kubernetes_metadata: ~
+
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  username: "${ELASTICSEARCH_USERNAME}"
+  password: "${ELASTICSEARCH_PASSWORD}"
+  ssl.enabled: true
+  ssl.verification_mode: "none"
+
+setup.kibana:
+  host: "kibana:5601"
+  username: "${KIBANA_USERNAME}"
+  password: "${KIBANA_PASSWORD}"
+  ssl.enabled: true
+  ssl.verification_mode: "none"
+
+logging.json: true
+logging.metrics.enabled: true 

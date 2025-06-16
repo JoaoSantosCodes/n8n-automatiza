@@ -1,0 +1,82 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Run OWASP ZAP Scan
+        uses: zaproxy/action-baseline@v0.4.0
+        with:
+          target: 'https://seu-dominio.com'
+
+  test:
+    runs-on: ubuntu-latest
+    needs: security-scan
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build test environment
+        run: docker-compose -f docker-compose.test.yml up -d
+
+      - name: Run tests
+        run: |
+          docker-compose -f docker-compose.test.yml exec -T n8n npm run test
+          docker-compose -f docker-compose.test.yml exec -T n8n npm run lint
+
+      - name: Check services health
+        run: |
+          curl -f http://localhost/health
+          docker-compose -f docker-compose.test.yml ps
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Configure SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy to production
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /path/to/n8n && \
+          git pull && \
+          docker-compose pull && \
+          docker-compose up -d --force-recreate && \
+          docker system prune -f"
+
+      - name: Verify deployment
+        run: |
+          curl -f https://seu-dominio.com/health
+
+  notify:
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Notify on Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} 

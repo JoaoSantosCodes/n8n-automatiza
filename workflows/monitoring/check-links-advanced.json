@@ -1,0 +1,212 @@
+{
+  "name": "Monitoramento Avançado de Sites",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        }
+      },
+      "name": "Cron",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [200, -320]
+    },
+    {
+      "parameters": {
+        "filePath": "/home/config/urls/production.txt",
+        "options": {
+          "encoding": "utf8"
+        }
+      },
+      "name": "Read URLs",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "position": [400, -320]
+    },
+    {
+      "parameters": {
+        "functionCode": "const data = Buffer.from(items[0].binary.data, 'base64').toString('utf8');\nconst lines = data.split('\\n').filter(line => line && !line.startsWith('#'));\n\nreturn lines.map(line => {\n  const [url, timeout, expectedStatus, checkSSL, checkContent] = line.split('|');\n  return {\n    json: {\n      url: url.trim(),\n      timeout: parseInt(timeout),\n      expectedStatus: parseInt(expectedStatus),\n      checkSSL,\n      checkContent: checkContent.trim()\n    }\n  };\n});"
+      },
+      "name": "Parse Config",
+      "type": "n8n-nodes-base.function",
+      "position": [600, -320]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.url}}",
+        "options": {
+          "timeout": "={{$json.timeout}}",
+          "followRedirects": true,
+          "returnFullResponse": true
+        }
+      },
+      "name": "HTTP Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [800, -320]
+    },
+    {
+      "parameters": {
+        "functionCode": "for (const item of items) {\n  const response = item.json;\n  const config = item.json.requestConfig;\n  \n  const result = {\n    url: config.url,\n    statusCode: response.statusCode,\n    responseTime: response.timings.end - response.timings.start,\n    contentMatch: response.body.includes(config.checkContent),\n    timestamp: new Date().toISOString(),\n    error: null\n  };\n  \n  if (response.statusCode !== config.expectedStatus) {\n    result.error = `Status esperado ${config.expectedStatus}, recebido ${response.statusCode}`;\n  }\n  \n  if (result.responseTime > config.timeout) {\n    result.error = `Tempo de resposta (${result.responseTime}ms) maior que o limite (${config.timeout}ms)`;\n  }\n  \n  if (!result.contentMatch) {\n    result.error = `Conteúdo esperado '${config.checkContent}' não encontrado`;\n  }\n  \n  return { json: result };\n}"
+      },
+      "name": "Process Results",
+      "type": "n8n-nodes-base.function",
+      "position": [1000, -320]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.error}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "name": "Has Error?",
+      "type": "n8n-nodes-base.if",
+      "position": [1200, -320]
+    },
+    {
+      "parameters": {
+        "filePath": "/home/config/notifications/templates.json",
+        "options": {
+          "encoding": "utf8"
+        }
+      },
+      "name": "Load Templates",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "position": [1400, -420]
+    },
+    {
+      "parameters": {
+        "functionCode": "const templates = JSON.parse(Buffer.from(items[0].binary.data, 'base64').toString('utf8'));\nconst alert = items[1].json;\n\nlet template;\nif (alert.error.includes('Tempo de resposta')) {\n  template = templates.performance.telegram;\n} else if (alert.error.includes('Status esperado')) {\n  template = templates.downtime.telegram;\n} else {\n  template = templates.downtime.telegram;\n}\n\nconst message = template.template\n  .replace('{{url}}', alert.url)\n  .replace('{{statusCode}}', alert.statusCode)\n  .replace('{{responseTime}}', alert.responseTime)\n  .replace('{{timestamp}}', alert.timestamp)\n  .replace('{{error}}', alert.error);\n\nreturn {\n  json: {\n    title: template.title,\n    message: message\n  }\n};"
+      },
+      "name": "Format Message",
+      "type": "n8n-nodes-base.function",
+      "position": [1600, -420]
+    },
+    {
+      "parameters": {
+        "chatId": "={{$node.Config.json.telegram_chat_id}}",
+        "text": "={{$json.title + '\\n\\n' + $json.message}}",
+        "additionalFields": {
+          "parse_mode": "Markdown",
+          "disable_web_page_preview": true
+        }
+      },
+      "name": "Send Alert",
+      "type": "n8n-nodes-base.telegram",
+      "position": [1800, -420]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "telegram_chat_id",
+              "value": "your_chat_id_here"
+            }
+          ]
+        }
+      },
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "position": [400, -520]
+    }
+  ],
+  "connections": {
+    "Cron": {
+      "main": [
+        [
+          {
+            "node": "Read URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read URLs": {
+      "main": [
+        [
+          {
+            "node": "Parse Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Config": {
+      "main": [
+        [
+          {
+            "node": "HTTP Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Check": {
+      "main": [
+        [
+          {
+            "node": "Process Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Results": {
+      "main": [
+        [
+          {
+            "node": "Has Error?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Error?": {
+      "main": [
+        [
+          {
+            "node": "Load Templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Templates": {
+      "main": [
+        [
+          {
+            "node": "Format Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Message": {
+      "main": [
+        [
+          {
+            "node": "Send Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+} 
