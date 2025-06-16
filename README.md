@@ -1,73 +1,51 @@
-# N8N Enterprise Environment
+# n8n Enterprise Environment
 
-Este projeto implementa um ambiente enterprise completo para n8n usando Docker, com foco em segurança, monitoramento, alta disponibilidade e facilidade de manutenção.
+Este é um ambiente enterprise completo para o n8n, incluindo autenticação OAuth2, monitoramento avançado, backup automatizado e alta disponibilidade.
 
-## 🚀 Funcionalidades Principais
+## 🌟 Funcionalidades
 
-### 🔒 Segurança
-- Autenticação básica configurada
-- SSL/TLS com Nginx como proxy reverso
-- WAF (ModSecurity) com regras OWASP
-- Headers de segurança otimizados
-- Rate limiting e proteção DDoS
-- Certificados SSL gerenciados automaticamente
+- ✅ **Autenticação OAuth2 com Keycloak**
+  - Single Sign-On (SSO)
+  - Gerenciamento centralizado de usuários
+  - Suporte a múltiplos provedores de identidade
 
-### 📊 Monitoramento
-- Prometheus e Grafana com dashboards personalizados
-- ELK Stack para logs centralizados
-- Métricas de negócio customizadas
-- Sistema de alertas inteligente
-- Dashboards pré-configurados
+- 🔒 **Segurança Avançada**
+  - Autenticação em duas etapas
+  - Criptografia de dados em repouso
+  - Políticas de senha personalizáveis
+  - Controle de acesso baseado em funções (RBAC)
 
-### 💾 Sistema de Cache
-- Redis Cluster configurado
-- Persistência otimizada
-- SSL/TLS habilitado
-- Monitoramento de performance
-- Políticas de cache configuráveis
+- 📊 **Monitoramento Inteligente**
+  - Dashboard Grafana personalizado
+  - Métricas de negócio customizadas
+  - Alertas configuráveis
+  - APM (Application Performance Monitoring)
 
-### 🔄 Backup e Recuperação
-- Scripts automatizados
-- Backup incremental
-- Verificação de integridade
-- Backup remoto (S3)
-- Retenção configurável
-- Restauração testada automaticamente
+- 💾 **Backup Automatizado**
+  - Backup diário para S3
+  - Retenção configurável
+  - Backup de workflows e dados
+  - Recuperação simplificada
 
-### 🔄 CI/CD e Automação
-- Pipeline com GitHub Actions
-- Testes automatizados
-- Scan de vulnerabilidades
-- Deploy automatizado
-- Rollback automático
+- 🚀 **Alta Disponibilidade**
+  - Auto-scaling horizontal
+  - Balanceamento de carga
+  - Recuperação automática
+  - Zero downtime deployments
 
-### 📱 Sistema de Notificações
-- Multicanal (Email, Slack, Discord)
-- Priorização de mensagens
-- Templates personalizados
-- Garantia de entrega
-- Histórico de notificações
-
-### 🛠 Manutenção
-- Scripts automatizados
-- Verificações periódicas
-- Limpeza automática
-- Relatórios de status
-- Monitoramento proativo
-
-## 📦 Pré-requisitos
+## 🛠️ Pré-requisitos
 
 - Docker 20.10+
 - Docker Compose 2.0+
 - 4GB RAM (mínimo)
 - 20GB espaço em disco
 
-## 🚀 Instalação
+## 📦 Instalação
 
 1. Clone o repositório:
 ```bash
-git clone https://github.com/JoaoSantosCodes/n8n-automatiza.git
-cd n8n-automatiza
+git clone https://github.com/seu-usuario/n8n-enterprise
+cd n8n-enterprise
 ```
 
 2. Configure as variáveis de ambiente:
@@ -81,34 +59,93 @@ cp .env.example .env
 docker-compose up -d
 ```
 
+## 🔧 Configuração
+
+### Keycloak (OAuth2)
+1. Acesse: http://localhost:8080
+2. Login: admin (senha no .env)
+3. Crie um novo realm "n8n"
+4. Configure o cliente OAuth2:
+   - Client ID: n8n-client
+   - Redirect URIs: http://localhost:5678/*
+
+### Grafana
+1. Acesse: http://localhost:3001
+2. Login: admin (senha no .env)
+3. Configure datasources:
+   - Prometheus
+   - Business Metrics
+
+### n8n
+1. Acesse: http://localhost:5678
+2. Faça login usando o Keycloak
+3. Configure suas credenciais e conexões
+
+## 📊 Monitoramento
+
+### Métricas Disponíveis
+- Execuções de workflows (sucesso/erro)
+- Tempo de execução
+- Uso de recursos
+- Métricas de negócio personalizadas
+
+### Dashboards
+- Overview do Sistema
+- Performance de Workflows
+- Métricas de Negócio
+- Alertas e Notificações
+
+## 💾 Backup
+
+### Configuração
+1. Configure as credenciais AWS no .env
+2. Defina o bucket S3 no .env
+3. Ajuste a retenção de backup (padrão: 7 dias)
+
+### Restauração
+1. Use o script `scripts/restore.sh`
+2. Selecione o backup desejado
+3. Aguarde a conclusão
+
+## 🔐 Segurança
+
+### Boas Práticas
+- Mantenha o .env seguro
+- Use senhas fortes
+- Atualize regularmente
+- Monitore os logs
+
+### Hardening
+- Firewall configurado
+- HTTPS habilitado
+- Secrets gerenciados
+- Atualizações automáticas
+
 ## 📚 Documentação
 
-- [Guia de Instalação](docs/installation.md)
-- [Configuração de Segurança](docs/security.md)
-- [Monitoramento](docs/monitoring.md)
-- [Backup e Recuperação](docs/backup.md)
-- [Manutenção](docs/maintenance.md)
+- [Guia de Administração](docs/admin-guide.md)
+- [Guia de Segurança](docs/security-guide.md)
+- [Guia de Backup](docs/backup-guide.md)
+- [Guia de Monitoramento](docs/monitoring-guide.md)
 
-## 🛣 Roadmap
+## 🗺️ Roadmap
 
-Consulte nosso [ROADMAP.md](ROADMAP.md) para ver o planejamento até 2025.
+Veja nosso [ROADMAP-2024.md](ROADMAP-2024.md) para os próximos desenvolvimentos.
 
-## 🔒 Segurança
+## 🤝 Contribuição
 
-Para reportar vulnerabilidades de segurança, por favor envie um email para [security@seudominio.com](mailto:security@seudominio.com).
-
-## 📄 Licença
-
-Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE.md](LICENSE.md) para detalhes.
-
-## 🤝 Contribuindo
-
-1. Faça um Fork do projeto
-2. Crie sua Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a Branch (`git push origin feature/AmazingFeature`)
+1. Fork o projeto
+2. Crie sua feature branch
+3. Commit suas mudanças
+4. Push para a branch
 5. Abra um Pull Request
 
-## 📞 Suporte
+## 📝 Licença
 
-Para suporte, envie um email para [support@seudominio.com](mailto:support@seudominio.com) ou abra uma issue no GitHub.
+Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+## 🆘 Suporte
+
+- Abra uma issue
+- Consulte a [documentação](docs/)
+- Entre em contato: support@seudominio.com

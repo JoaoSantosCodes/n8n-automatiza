@@ -42,6 +42,20 @@ helm upgrade --install grafana grafana/grafana \
     --namespace n8n \
     -f kubernetes/base/monitoring/grafana-values.yaml
 
+# Instalar métricas de negócio
+echo -e "${YELLOW}Instalando coletor de métricas de negócio...${NC}"
+kubectl apply -f kubernetes/base/monitoring/business-metrics-deployment.yaml
+
+# Configurar Keycloak
+echo -e "${YELLOW}Configurando Keycloak...${NC}"
+kubectl apply -f kubernetes/base/keycloak-deployment.yaml
+kubectl apply -f kubernetes/base/keycloak-service.yaml
+
+# Configurar backup
+echo -e "${YELLOW}Configurando sistema de backup...${NC}"
+kubectl apply -f kubernetes/base/backup/backup-pvc.yaml
+kubectl apply -f kubernetes/base/backup/backup-cronjob.yaml
+
 # Aplicar configurações do n8n
 echo -e "${YELLOW}Aplicando configurações do n8n...${NC}"
 kubectl apply -k kubernetes/base
@@ -51,6 +65,8 @@ echo -e "${YELLOW}Aguardando pods iniciarem...${NC}"
 kubectl wait --for=condition=ready pod -l app=n8n -n n8n --timeout=300s
 kubectl wait --for=condition=ready pod -l app=postgres -n n8n --timeout=300s
 kubectl wait --for=condition=ready pod -l app=redis -n n8n --timeout=300s
+kubectl wait --for=condition=ready pod -l app=keycloak -n n8n --timeout=300s
+kubectl wait --for=condition=ready pod -l app=business-metrics -n n8n --timeout=300s
 
 # Verificar status
 echo -e "${YELLOW}Verificando status dos pods...${NC}"
@@ -61,7 +77,19 @@ DOMAIN=$(kubectl get ingress -n n8n n8n -o jsonpath='{.spec.rules[0].host}')
 echo -e "${GREEN}Deploy concluído!${NC}"
 echo -e "${GREEN}n8n está disponível em: https://${DOMAIN}${NC}"
 echo -e "${GREEN}Grafana está disponível em: https://${DOMAIN}/grafana${NC}"
+echo -e "${GREEN}Keycloak está disponível em: https://${DOMAIN}/auth${NC}"
 
-# Obter senha do Grafana
+# Obter senhas
 GRAFANA_PASSWORD=$(kubectl get secret --namespace n8n grafana -o jsonpath="{.data.admin-password}" | base64 --decode)
-echo -e "${GREEN}Senha do Grafana: ${GRAFANA_PASSWORD}${NC}" 
+KEYCLOAK_PASSWORD=$(kubectl get secret --namespace n8n keycloak-secrets -o jsonpath="{.data.admin_password}" | base64 --decode)
+
+echo -e "${GREEN}Senha do Grafana: ${GRAFANA_PASSWORD}${NC}"
+echo -e "${GREEN}Senha do Keycloak: ${KEYCLOAK_PASSWORD}${NC}"
+
+# Instruções adicionais
+echo -e "\n${YELLOW}Próximos passos:${NC}"
+echo "1. Configure o Keycloak com seu domínio em: https://${DOMAIN}/auth"
+echo "2. Crie um cliente OAuth2 no Keycloak para o n8n"
+echo "3. Configure as credenciais AWS para backup em: kubectl edit secret aws-secrets -n n8n"
+echo "4. Verifique os dashboards do Grafana em: https://${DOMAIN}/grafana"
+echo "5. Configure alertas no Grafana conforme necessário" 

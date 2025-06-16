@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: business-metrics
+  namespace: n8n
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: business-metrics
+  template:
+    metadata:
+      labels:
+        app: business-metrics
+    spec:
+      containers:
+      - name: business-metrics
+        image: prom/pushgateway:latest
+        ports:
+        - containerPort: 9091
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        volumeMounts:
+        - name: metrics-volume
+          mountPath: /metrics
+      - name: metrics-collector
+        image: python:3.9-slim
+        command: ["python", "/app/collector.py"]
+        env:
+        - name: N8N_API_URL
+          value: "http://n8n"
+        - name: N8N_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: n8n-secrets
+              key: api_key
+        - name: PUSHGATEWAY_URL
+          value: "http://localhost:9091"
+        volumeMounts:
+        - name: collector-config
+          mountPath: /app
+      volumes:
+      - name: metrics-volume
+        emptyDir: {}
+      - name: collector-config
+        configMap:
+          name: metrics-collector-config 

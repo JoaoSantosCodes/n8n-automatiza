@@ -8,8 +8,14 @@ resources:
   - n8n-deployment.yaml
   - n8n-service.yaml
   - n8n-ingress.yaml
+  - n8n-hpa.yaml
   - postgres-statefulset.yaml
   - redis-statefulset.yaml
+  - keycloak-deployment.yaml
+  - keycloak-service.yaml
+  - backup/backup-cronjob.yaml
+  - backup/backup-pvc.yaml
+  - monitoring/business-metrics-deployment.yaml
 
 configMapGenerator:
   - name: n8n-config
@@ -19,6 +25,12 @@ configMapGenerator:
   - name: redis-config
     files:
       - redis.conf
+  - name: backup-config
+    literals:
+      - s3_bucket=n8n-backups
+  - name: metrics-collector-config
+    files:
+      - monitoring/collector.py
 
 secretGenerator:
   - name: n8n-secrets
@@ -26,6 +38,17 @@ secretGenerator:
       - db_user=n8n
       - db_password=changeme
       - encryption_key=changeme
+      - api_key=changeme
+  - name: keycloak-secrets
+    literals:
+      - admin_user=admin
+      - admin_password=changeme
+      - db_user=keycloak
+      - db_password=changeme
+  - name: aws-secrets
+    literals:
+      - access_key=changeme
+      - secret_key=changeme
 
 images:
   - name: n8nio/n8n
@@ -33,4 +56,10 @@ images:
   - name: postgres
     newTag: 13-alpine
   - name: redis
-    newTag: 6-alpine 
+    newTag: 6-alpine
+  - name: quay.io/keycloak/keycloak
+    newTag: latest
+  - name: prom/pushgateway
+    newTag: latest
+  - name: python
+    newTag: 3.9-slim 
