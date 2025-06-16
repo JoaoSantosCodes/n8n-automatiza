@@ -1,0 +1,62 @@
+version: 2
+updates:
+  # Manter dependências npm atualizadas
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    versioning-strategy: auto
+    labels:
+      - "dependencies"
+      - "npm"
+    reviewers:
+      - "team-maintainers"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+  # Manter dependências Docker atualizadas
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+    reviewers:
+      - "team-maintainers"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+  # Manter dependências GitHub Actions atualizadas
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    reviewers:
+      - "team-maintainers"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+  # Manter dependências Python atualizadas
+  - package-ecosystem: "pip"
+    directory: "/ai-analytics"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+    reviewers:
+      - "team-maintainers"
+    commit-message:
+      prefix: "chore"
+      include: "scope" 

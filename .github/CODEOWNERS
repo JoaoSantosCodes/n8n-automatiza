@@ -1,0 +1,45 @@
+# Configuração global de owners
+* @team-maintainers
+
+# Core n8n
+/kubernetes/base/n8n/ @team-n8n-core
+
+# GPT Service
+/kubernetes/base/gpt-integration/ @team-ai
+/docs/gpt-integration-guide.md @team-ai
+
+# Vault
+/kubernetes/base/vault/ @team-security
+/docs/vault-guide.md @team-security
+
+# OpenTelemetry
+/kubernetes/base/opentelemetry/ @team-observability
+/docs/opentelemetry-guide.md @team-observability
+
+# Federation
+/kubernetes/base/federation/ @team-platform
+/docs/federation-guide.md @team-platform
+
+# AI Analytics
+/kubernetes/base/ai-analytics/ @team-ai
+/docs/ai-analytics-guide.md @team-ai
+
+# Scripts
+/scripts/ @team-devops
+/scripts/rollback/ @team-devops @team-platform
+
+# CI/CD
+/.github/workflows/ @team-devops
+/.github/CODEOWNERS @team-maintainers
+
+# Docs
+/docs/ @team-docs @team-maintainers
+
+# Security
+/SECURITY.md @team-security
+/.github/SECURITY.md @team-security
+
+# Dependencies
+/package.json @team-maintainers
+/package-lock.json @team-maintainers
+/requirements.txt @team-maintainers 

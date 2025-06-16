@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: federation-controller
+  namespace: n8n
+  labels:
+    app: federation-controller
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: federation-controller
+  template:
+    metadata:
+      labels:
+        app: federation-controller
+    spec:
+      serviceAccountName: federation-controller
+      containers:
+      - name: federation-controller
+        image: federation-controller:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: CLUSTER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: cluster-config
+              key: name
+        - name: PRIMARY_CLUSTER
+          valueFrom:
+            configMapKeyRef:
+              name: cluster-config
+              key: primary
+        volumeMounts:
+        - name: kubeconfig
+          mountPath: /etc/federation
+          readOnly: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: kubeconfig
+        secret:
+          secretName: federation-kubeconfig
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: federation-controller
+  namespace: n8n
+spec:
+  selector:
+    app: federation-controller
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-config
+  namespace: n8n
+data:
+  name: "cluster-1"
+  primary: "true"
+  peers: |
+    - name: cluster-2
+      endpoint: https://cluster-2.example.com
+      role: secondary
+    - name: cluster-3
+      endpoint: https://cluster-3.example.com
+      role: secondary
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: federation-controller
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps", "secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "statefulsets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: federation-controller
+subjects:
+- kind: ServiceAccount
+  name: federation-controller
+  namespace: n8n
+roleRef:
+  kind: ClusterRole
+  name: federation-controller
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: federation-controller
+  namespace: n8n 

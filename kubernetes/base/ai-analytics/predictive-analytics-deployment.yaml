@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: predictive-analytics
+  namespace: n8n
+  labels:
+    app: predictive-analytics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: predictive-analytics
+  template:
+    metadata:
+      labels:
+        app: predictive-analytics
+    spec:
+      containers:
+      - name: predictive-analytics
+        image: python:3.9-slim
+        imagePullPolicy: IfNotPresent
+        command: ["python", "/app/predictor.py"]
+        env:
+        - name: PROMETHEUS_URL
+          value: "http://prometheus:9090"
+        - name: MODEL_UPDATE_INTERVAL
+          value: "3600"  # 1 hora
+        - name: PREDICTION_WINDOW
+          value: "86400"  # 24 horas
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        volumeMounts:
+        - name: model-storage
+          mountPath: /app/models
+        - name: config-volume
+          mountPath: /app/config
+        - name: code-volume
+          mountPath: /app
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: model-storage-pvc
+      - name: config-volume
+        configMap:
+          name: predictor-config
+      - name: code-volume
+        configMap:
+          name: predictor-code
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: predictive-analytics
+  namespace: n8n
+spec:
+  selector:
+    app: predictive-analytics
+  ports:
+  - port: 5000
+    targetPort: 5000
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-storage-pvc
+  namespace: n8n
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: predictor-config
+  namespace: n8n
+data:
+  config.yaml: |
+    model:
+      type: lstm
+      layers: [64, 32]
+      dropout: 0.2
+      
+    features:
+      - cpu_usage
+      - memory_usage
+      - workflow_execution_time
+      - error_rate
+      - queue_size
+      
+    thresholds:
+      cpu_warning: 80
+      memory_warning: 85
+      execution_time_warning: 300
+      error_rate_warning: 5
+      
+    notifications:
+      slack_webhook: ""
+      email: ""
+      
+    training:
+      batch_size: 32
+      epochs: 100
+      validation_split: 0.2
+      early_stopping_patience: 10 

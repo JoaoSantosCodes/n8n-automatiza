@@ -149,3 +149,101 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 - Abra uma issue
 - Consulte a [documentação](docs/)
 - Entre em contato: support@seudominio.com
+
+## Sistema de Rollback
+
+O ambiente possui um sistema robusto de rollback que permite reverter alterações em caso de problemas. Os scripts estão localizados em `scripts/rollback/`.
+
+### Scripts Disponíveis
+
+1. `component-rollback.sh`: Permite fazer rollback de componentes específicos
+   ```bash
+   # Rollback de um componente específico
+   ./scripts/rollback/component-rollback.sh gpt v1.0.0
+   
+   # Rollback de todos os componentes
+   ./scripts/rollback/component-rollback.sh all
+   ```
+
+2. `backup-data.sh`: Realiza backup completo antes de alterações
+   ```bash
+   # Backup completo
+   ./scripts/rollback/backup-data.sh
+   ```
+
+3. `restore-backup.sh`: Restaura um backup anterior
+   ```bash
+   # Restaurar backup
+   ./scripts/rollback/restore-backup.sh backups/full_backup_20240101_120000.tar.gz
+   ```
+
+### Componentes Suportados
+
+- GPT Service
+- Vault
+- OpenTelemetry Collector
+- Federation Controller
+- AI Analytics
+
+### Processo de Rollback
+
+1. **Antes de Atualizar**
+   - Faça um backup completo:
+     ```bash
+     ./scripts/rollback/backup-data.sh
+     ```
+
+2. **Em Caso de Problemas**
+   - Para reverter um componente específico:
+     ```bash
+     ./scripts/rollback/component-rollback.sh <componente> [versão]
+     ```
+   - Para restaurar um backup completo:
+     ```bash
+     ./scripts/rollback/restore-backup.sh <arquivo_backup>
+     ```
+
+3. **Verificação**
+   - Após o rollback, o sistema verifica automaticamente:
+     - Estado dos pods
+     - Endpoints dos serviços
+     - Integridade do sistema
+
+### Boas Práticas
+
+1. **Sempre faça backup antes de:**
+   - Atualizações de versão
+   - Mudanças de configuração
+   - Alterações em workflows críticos
+
+2. **Mantenha backups organizados:**
+   - Use timestamps nos nomes
+   - Documente as mudanças
+   - Mantenha histórico de rollbacks
+
+3. **Teste o processo:**
+   - Faça testes regulares de restore
+   - Valide os backups
+   - Mantenha a equipe treinada
+
+4. **Monitoramento:**
+   - Acompanhe logs após rollback
+   - Verifique métricas
+   - Monitore performance
+
+### Troubleshooting
+
+1. **Logs**
+   - Todos os scripts geram logs detalhados
+   - Use cores para identificar status
+   - Timestamps em todas as operações
+
+2. **Verificações**
+   - Estado dos serviços
+   - Conectividade
+   - Integridade dos dados
+
+3. **Suporte**
+   - Documentação detalhada
+   - Logs para análise
+   - Processo de escalonamento
