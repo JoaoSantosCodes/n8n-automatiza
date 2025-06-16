@@ -94,3 +94,12 @@ training-data/
 # Custom
 custom/
 local/
+
+# Project specific
+**/prometheus-data/
+**/grafana-data/
+**/postgres-data/
+**/redis-data/
+.env.*
+!.env.example
+*.override.yml

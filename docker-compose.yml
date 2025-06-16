@@ -1,180 +1,75 @@
 version: '3.8'
 
 services:
-  redis:
-    image: redis:6-alpine
-    command: redis-server /usr/local/etc/redis/redis.conf
-    volumes:
-      - ./kubernetes/base/redis.conf:/usr/local/etc/redis/redis.conf
-      - redis_data:/data
-    networks:
-      - n8n_network
-    restart: unless-stopped
-
   postgres:
     image: postgres:13-alpine
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-n8n}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-n8n}
-      - POSTGRES_DB=${POSTGRES_DB:-n8n}
-      - POSTGRES_NON_ROOT_USER=${POSTGRES_NON_ROOT_USER:-n8n}
-      - POSTGRES_NON_ROOT_PASSWORD=${POSTGRES_NON_ROOT_PASSWORD:-n8n}
+      - POSTGRES_USER=n8n
+      - POSTGRES_PASSWORD=n8n
+      - POSTGRES_DB=n8n
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - n8n_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U n8n"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  waha:
-    image: devlikeapro/waha:latest
-    platform: linux/amd64
-    environment:
-      WHATSAPP_HOOK_URL: http://n8n:5678/webhook/webhook
-      WHATSAPP_DEFAULT_ENGINE: GOWS
-      WHATSAPP_HOOK_EVENTS: ${WHATSAPP_HOOK_EVENTS}
+  redis:
+    image: redis:7.2-alpine
     volumes:
-      - waha_sessions:/app/.sessions
-      - waha_media:/app/.media
-    ports:
-      - "127.0.0.1:3000:3000"  # Restrito apenas a localhost
+      - redis_data:/data
     networks:
       - n8n_network
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
       retries: 3
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 1G
 
   n8n:
     image: n8nio/n8n:latest
     ports:
       - "5678:5678"
     environment:
-      - N8N_HOST=${N8N_HOST:-localhost}
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=postgres
       - DB_POSTGRESDB_PORT=5432
-      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-n8n}
-      - DB_POSTGRESDB_USER=${POSTGRES_USER:-n8n}
-      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-n8n}
-      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-changeme}
-      - WEBHOOK_URL=${N8N_PROTOCOL:-http}://${N8N_HOST:-localhost}:5678/
-      - N8N_METRICS=true
-      - N8N_METRICS_PREFIX=n8n_
-      - N8N_METRICS_PUSH_URL=http://pushgateway:9091
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=n8n
+      - DB_POSTGRESDB_PASSWORD=n8n
+      - N8N_ENCRYPTION_KEY=4c6d62636b7467576d316d32396f5a47566c636e52795a57357659584a6c
       - EXECUTIONS_DATA_SAVE_ON_ERROR=all
       - EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
       - EXECUTIONS_DATA_SAVE_ON_PROGRESS=true
       - EXECUTIONS_DATA_PRUNE=true
       - EXECUTIONS_DATA_MAX_AGE=336
-      - N8N_AUTH_OAUTH2_ENABLED=true
-      - N8N_AUTH_OAUTH2_CLIENT_ID=${OAUTH2_CLIENT_ID:-n8n-client}
-      - N8N_AUTH_OAUTH2_CLIENT_SECRET=${OAUTH2_CLIENT_SECRET:-changeme}
-      - N8N_AUTH_OAUTH2_AUTHORITY=http://keycloak:8080/auth/realms/n8n
-      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
-      - NODE_ENV=production
+      - N8N_METRICS=true
     volumes:
       - n8n_data:/home/node/.n8n
+    networks:
+      - n8n_network
     depends_on:
-      - postgres
-      - redis
-      - keycloak
-    networks:
-      - n8n_network
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
-    user: node
-
-  keycloak:
-    image: quay.io/keycloak/keycloak:latest
-    environment:
-      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN:-admin}
-      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-changeme}
-      - KC_DB=postgres
-      - KC_DB_URL=jdbc:postgresql://postgres:5432/keycloak
-      - KC_DB_USERNAME=${KEYCLOAK_DB_USER:-keycloak}
-      - KC_DB_PASSWORD=${KEYCLOAK_DB_PASSWORD:-changeme}
-    ports:
-      - "8080:8080"
-    depends_on:
-      - postgres
-    networks:
-      - n8n_network
-    restart: unless-stopped
-
-  prometheus:
-    image: prom/prometheus:latest
-    volumes:
-      - ./kubernetes/base/monitoring/prometheus-values.yaml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
-    ports:
-      - "9090:9090"
-    networks:
-      - n8n_network
-    restart: unless-stopped
-
-  grafana:
-    image: grafana/grafana:latest
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./kubernetes/base/monitoring/grafana-values.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
-    environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-changeme}
-      - GF_USERS_ALLOW_SIGN_UP=false
-    ports:
-      - "3001:3000"
-    depends_on:
-      - prometheus
-    networks:
-      - n8n_network
-    restart: unless-stopped
-
-  pushgateway:
-    image: prom/pushgateway:latest
-    ports:
-      - "9091:9091"
-    networks:
-      - n8n_network
-    restart: unless-stopped
-
-  business-metrics:
-    build:
-      context: .
-      dockerfile: Dockerfile.metrics
-    environment:
-      - N8N_API_URL=http://n8n:5678
-      - N8N_API_KEY=${N8N_API_KEY:-changeme}
-      - PUSHGATEWAY_URL=http://pushgateway:9091
-    volumes:
-      - ./kubernetes/base/monitoring/collector.py:/app/collector.py
-    depends_on:
-      - n8n
-      - pushgateway
-    networks:
-      - n8n_network
-    restart: unless-stopped
-
-volumes:
-  n8n_data:
-  postgres_data:
-  redis_data:
-  prometheus_data:
-  grafana_data:
-  waha_sessions:
-  waha_media:
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 networks:
   n8n_network:
     driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  n8n_data:

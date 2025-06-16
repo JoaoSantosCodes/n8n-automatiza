@@ -169,19 +169,80 @@ Este é um ambiente enterprise completo para o n8n, incluindo autenticação OAu
 - Certificados
 - Backups
 
-## 🔐 Segurança
+## 🔄 Atualização e Rollback
 
-### Boas Práticas
-- Secrets em Vault
-- RBAC configurado
-- Network policies
-- Pod security
-- Audit logging
+### Processo de Atualização
 
-### Certificados
-- Auto-renovação
-- Monitoramento
-- Alertas de expiração
+1. **Backup do Ambiente Atual**
+   ```powershell
+   # Windows
+   .\rollback.ps1 backup
+
+   # Linux/Mac
+   ./rollback.sh backup
+   ```
+
+2. **Verificar Backup**
+   ```powershell
+   # Windows
+   .\rollback.ps1 list
+
+   # Linux/Mac
+   ./rollback.sh list
+   ```
+
+3. **Atualizar o Ambiente**
+   ```bash
+   # Parar containers atuais
+   docker-compose down
+
+   # Aplicar novas configurações
+   docker-compose up -d
+
+   # Verificar logs
+   docker-compose logs -f
+   ```
+
+### Processo de Rollback
+
+Se encontrar problemas após a atualização:
+
+1. **Parar os containers**
+   ```bash
+   docker-compose down
+   ```
+
+2. **Executar o rollback**
+   ```powershell
+   # Windows
+   .\rollback.ps1 rollback .\backups\[timestamp]
+
+   # Linux/Mac
+   ./rollback.sh rollback ./backups/[timestamp]
+   ```
+
+### Checklist Pós-Atualização
+
+- [ ] Todos os containers estão em execução
+- [ ] n8n está acessível via navegador
+- [ ] Workflows estão funcionando
+- [ ] Conexões com serviços externos estão operacionais
+- [ ] Monitoramento está ativo
+- [ ] Backups automáticos estão configurados
+
+### Problemas Comuns e Soluções
+
+#### Erro de Permissão em Volumes
+```bash
+docker-compose down
+docker volume prune -f  # Cuidado: isso remove volumes não utilizados
+docker-compose up -d
+```
+
+#### Problemas de Conexão com Banco de Dados
+```bash
+docker-compose logs postgres
+```
 
 ## 📚 Documentação Adicional
 
@@ -191,6 +252,7 @@ Este é um ambiente enterprise completo para o n8n, incluindo autenticação OAu
 - [Guia de Monitoramento](docs/monitoring-guide.md)
 - [Guia de IA](docs/ai-guide.md)
 - [Guia de Rollback](docs/rollback-guide.md)
+- [Guia de Atualização](docs/update-guide.md)
 
 ## 🤝 Contribuição
 
