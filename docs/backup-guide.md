@@ -1,260 +1,313 @@
-# Guia de Backup - n8n Enterprise
+# Guia de Backup e Restore
 
-## Visão Geral
-Este guia detalha a estratégia de backup e recuperação implementada no ambiente n8n Enterprise.
+Este guia detalha os procedimentos de backup e restore do ambiente n8n enterprise.
 
-## Arquitetura de Backup
+## 📋 Visão Geral
 
-```mermaid
-graph TD
-    A[n8n] --> B[PostgreSQL]
-    B --> C[Backup Job]
-    C --> D[S3 Bucket]
-    D --> E[Lifecycle Policy]
-    C --> F[Local Storage]
-    G[Monitoring] --> C
-    G --> H[Alerting]
-```
+O sistema de backup é projetado para:
+- Backup automático para AWS S3
+- Backup incremental
+- Restore point-in-time
+- Validação automática
+- Retenção configurável
 
-## Componentes
+## 🗃️ Componentes Backup
 
-### Backup Job
-```yaml
-schedule: "0 2 * * *"  # 2 AM diariamente
-retention:
-  daily: 7 days
-  weekly: 4 weeks
-  monthly: 12 months
-  yearly: 5 years
+### 1. Dados do n8n
+- Workflows
+- Credenciais
+- Variáveis
+- Execuções
+- Webhooks
 
-components:
-  - database
-  - workflows
-  - credentials
-  - variables
-  - configurations
-```
+### 2. Banco de Dados
+- PostgreSQL
+- Redis
+- Configurações
 
-### Storage
-```yaml
-s3:
-  bucket: n8n-backups
-  region: us-east-1
-  encryption: AES-256
-  versioning: enabled
-  
-local:
-  path: /backup
-  retention: 7 days
-  compression: gzip
-```
+### 3. Configurações
+- Keycloak
+- Vault
+- Certificados
+- Network policies
 
-## Tipos de Backup
+### 4. Customizações
+- Dashboards
+- Alertas
+- Scripts
+- Templates
+
+## 📦 Tipos de Backup
 
 ### Full Backup
-1. Componentes:
-   - Banco de dados completo
-   - Workflows
-   - Credenciais
-   - Variáveis
-   - Configurações
+```bash
+# Backup completo
+./scripts/backup.sh --full
 
-2. Frequência:
-   - Diário às 2h
-   - Retenção de 7 dias
+# Backup completo com timestamp específico
+./scripts/backup.sh --full --timestamp "2024-01-01-120000"
 
-3. Processo:
-   ```bash
-   # Backup do banco
-   pg_dump -Fc -f backup.dump
-   
-   # Backup de arquivos
-   tar -czf files.tar.gz /data
-   
-   # Upload para S3
-   aws s3 cp backup.dump s3://bucket/
-   aws s3 cp files.tar.gz s3://bucket/
-   ```
+# Backup completo com compressão máxima
+./scripts/backup.sh --full --compress max
+```
 
 ### Incremental Backup
-1. Componentes:
-   - WAL logs
-   - Novos workflows
-   - Alterações de config
+```bash
+# Backup incremental
+./scripts/backup.sh --incremental
 
-2. Frequência:
-   - A cada 6 horas
-   - Retenção de 48 horas
+# Backup incremental desde timestamp
+./scripts/backup.sh --incremental --since "2024-01-01-120000"
+```
 
-3. Processo:
-   ```bash
-   # Backup WAL
-   pg_basebackup -D backup
-   
-   # Sync de arquivos
-   rsync -av /data/ backup/
-   
-   # Upload para S3
-   aws s3 sync backup/ s3://bucket/
-   ```
+### Backup Seletivo
+```bash
+# Backup de componente específico
+./scripts/backup.sh --component workflow
 
-## Monitoramento
+# Backup de múltiplos componentes
+./scripts/backup.sh --component "workflow,credentials,variables"
+```
+
+## 🔄 Processo de Backup
+
+### 1. Pré-backup
+```bash
+# Verificar espaço
+./scripts/backup.sh --check-space
+
+# Validar dependências
+./scripts/backup.sh --check-deps
+
+# Teste de conectividade
+./scripts/backup.sh --test-connection
+```
+
+### 2. Durante Backup
+- Consistência dos dados
+- Compressão
+- Criptografia
+- Upload para S3
+
+### 3. Pós-backup
+- Validação
+- Limpeza
+- Notificação
+- Logs
+
+## 🔐 Segurança
+
+### Criptografia
+```yaml
+encryption:
+  algorithm: AES-256-GCM
+  key_management: aws-kms
+  key_rotation: 90d
+```
+
+### Acesso
+```yaml
+permissions:
+  - action: s3:PutObject
+    resource: arn:aws:s3:::n8n-backups/*
+  - action: s3:GetObject
+    resource: arn:aws:s3:::n8n-backups/*
+  - action: kms:Decrypt
+    resource: arn:aws:kms:region:account:key/*
+```
+
+## 📅 Agendamento
+
+### Configuração
+```yaml
+schedule:
+  full:
+    frequency: daily
+    time: "00:00"
+    retention: 7d
+  
+  incremental:
+    frequency: hourly
+    retention: 24h
+  
+  validation:
+    frequency: daily
+    time: "06:00"
+```
+
+## 🔄 Restore
+
+### Restore Completo
+```bash
+# Restore do último backup
+./scripts/restore.sh --latest
+
+# Restore de backup específico
+./scripts/restore.sh --backup "backup-2024-01-01-120000.tar.gz"
+
+# Restore para ambiente de teste
+./scripts/restore.sh --backup "backup.tar.gz" --target test
+```
+
+### Restore Seletivo
+```bash
+# Restore de workflows
+./scripts/restore.sh --component workflow --backup "backup.tar.gz"
+
+# Restore de credenciais
+./scripts/restore.sh --component credentials --backup "backup.tar.gz"
+```
+
+### Restore Point-in-Time
+```bash
+# Restore para timestamp específico
+./scripts/restore.sh --timestamp "2024-01-01-120000"
+
+# Restore do último ponto consistente
+./scripts/restore.sh --last-consistent
+```
+
+## 📊 Monitoramento
 
 ### Métricas
-```yaml
-backup_metrics:
-  - status
-  - duration
-  - size
-  - last_success
-  - error_count
-```
+- Tempo de backup
+- Tamanho do backup
+- Taxa de sucesso
+- Tempo de restore
+- Uso de recursos
 
 ### Alertas
 ```yaml
 alerts:
   backup_failed:
-    condition: status != success
+    condition: status != "success"
     severity: critical
-    notification: immediate
-    
-  backup_late:
-    condition: time_since_last > 26h
+    notification: ["email", "slack"]
+
+  backup_size:
+    condition: size > threshold
     severity: warning
-    notification: oncall
-    
-  storage_low:
-    condition: free_space < 20%
-    severity: warning
-    notification: team
+    notification: ["slack"]
+
+  restore_failed:
+    condition: status != "success"
+    severity: critical
+    notification: ["email", "slack", "pagerduty"]
 ```
 
-## Recuperação
+## 🔍 Validação
 
-### Procedimento Completo
-1. Preparação:
+### Verificações
+1. Integridade
    ```bash
-   # Parar serviços
-   docker-compose down
-   
-   # Limpar diretórios
-   rm -rf /data/*
+   ./scripts/backup.sh --verify integrity
    ```
 
-2. Restauração:
+2. Consistência
    ```bash
-   # Download do backup
-   aws s3 cp s3://bucket/backup.dump .
-   aws s3 cp s3://bucket/files.tar.gz .
-   
-   # Restaurar banco
-   pg_restore -d n8n backup.dump
-   
-   # Restaurar arquivos
-   tar -xzf files.tar.gz -C /
+   ./scripts/backup.sh --verify consistency
    ```
 
-3. Validação:
+3. Restore Test
    ```bash
-   # Verificar integridade
-   psql -c "SELECT count(*) FROM workflows"
-   
-   # Testar serviços
-   docker-compose up -d
-   curl http://localhost:5678/healthz
+   ./scripts/backup.sh --verify restore
    ```
 
-### Recuperação Pontual
-1. Seleção do ponto:
-   - Data/hora específica
-   - Antes de incidente
-   - Última versão estável
-
-2. Processo:
-   ```bash
-   # Identificar backup
-   aws s3 ls s3://bucket/
-   
-   # Download específico
-   aws s3 cp s3://bucket/backup_20240101.dump .
-   
-   # Restauração seletiva
-   pg_restore -t workflows -d n8n backup.dump
-   ```
-
-## Testes e Validação
-
-### Testes Regulares
-1. Mensal:
-   - Restauração completa
-   - Verificação de integridade
-   - Teste de aplicação
-
-2. Trimestral:
-   - DR simulation
-   - Tempo de recuperação
-   - Procedimentos de emergência
-
-### Checklist de Validação
+### Logs
 ```yaml
-validations:
-  - database_integrity
-  - file_completeness
-  - configuration_correctness
-  - service_functionality
-  - performance_metrics
+logging:
+  path: /var/log/n8n/backup
+  level: info
+  retention: 90d
+  format:
+    timestamp: ISO8601
+    fields:
+      - operation
+      - status
+      - size
+      - duration
 ```
 
-## Segurança
+## 🚨 Troubleshooting
 
-### Criptografia
-1. Em repouso:
-   - AES-256 no S3
-   - Encrypted volumes
-   - Key management
+### Problemas Comuns
 
-2. Em trânsito:
-   - TLS 1.3
-   - VPN quando necessário
-   - Certificados gerenciados
+1. Falha no Backup
+```bash
+# Verificar status
+./scripts/backup.sh --status
 
-### Acesso
-```yaml
-permissions:
-  backup_service:
-    - s3:PutObject
-    - s3:GetObject
-    - s3:ListBucket
-    
-  restore_service:
-    - s3:GetObject
-    - s3:ListBucket
-    
-  monitoring:
-    - s3:ListBucket
-    - s3:GetMetrics
+# Verificar logs
+./scripts/backup.sh --logs
+
+# Retry backup
+./scripts/backup.sh --retry
 ```
 
-## Manutenção
+2. Falha no Restore
+```bash
+# Verificar backup
+./scripts/restore.sh --verify backup.tar.gz
 
-### Rotinas
-1. Diárias:
-   - Verificar status
-   - Validar integridade
-   - Limpar temporários
+# Restore com debug
+./scripts/restore.sh --debug
 
-2. Semanais:
-   - Análise de espaço
-   - Teste de restauração
-   - Revisão de logs
+# Cleanup após falha
+./scripts/restore.sh --cleanup
+```
 
-3. Mensais:
-   - Teste completo
-   - Atualização de docs
-   - Review de política
+### Recovery
+1. Backup Corrompido
+```bash
+# Verificar backup anterior
+./scripts/backup.sh --verify-previous
 
-## Referências
-- [PostgreSQL Backup](https://www.postgresql.org/docs/current/backup.html)
-- [AWS S3 Best Practices](https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html)
-- [n8n Data Management](https://docs.n8n.io/hosting/data-management/)
-- [Disaster Recovery Best Practices](https://cloud.google.com/architecture/dr-scenarios-planning-guide) 
+# Restore do último válido
+./scripts/restore.sh --last-valid
+```
+
+2. Restore Parcial
+```bash
+# Continuar restore
+./scripts/restore.sh --continue
+
+# Rollback restore
+./scripts/restore.sh --rollback
+```
+
+## 📚 Boas Práticas
+
+### 1. Backup
+- Teste regularmente
+- Monitore tamanho
+- Valide integridade
+- Mantenha documentação
+
+### 2. Restore
+- Teste mensalmente
+- Documente procedimentos
+- Mantenha runbook
+- Treine equipe
+
+### 3. Segurança
+- Criptografe backups
+- Controle acesso
+- Monitore atividades
+- Audite restaurações
+
+## 📖 Documentação Adicional
+
+### Guias
+- [Arquitetura de Backup](docs/backup/architecture.md)
+- [Procedimentos de Restore](docs/backup/restore-procedures.md)
+- [Troubleshooting Guide](docs/backup/troubleshooting.md)
+
+### Exemplos
+- [Backup Customizado](examples/custom-backup.md)
+- [Restore Seletivo](examples/selective-restore.md)
+- [Validação de Backup](examples/backup-validation.md)
+
+### Referências
+- [AWS S3 Backup Best Practices](docs/backup/aws-best-practices.md)
+- [Disaster Recovery Plan](docs/backup/dr-plan.md)
+- [Compliance Requirements](docs/backup/compliance.md) 

@@ -1,229 +1,344 @@
-# Guia de Segurança - n8n Enterprise
+# Guia de Segurança
 
-## Visão Geral
-Este guia detalha as práticas e configurações de segurança implementadas no ambiente n8n Enterprise.
+Este guia detalha as práticas de segurança implementadas no ambiente n8n enterprise.
 
-## Autenticação e Autorização
+## 🔐 Autenticação e Autorização
 
-### Keycloak (OAuth2)
-- SSO configurado
-- RBAC implementado
-- Multi-tenant suportado
-- 2FA habilitado
+### Keycloak Integration
+- Single Sign-On (SSO)
+- Multi-Factor Authentication (MFA)
+- OAuth2/OpenID Connect
+- SAML Support
+- LDAP Integration
 
-#### Configuração do Realm
+### RBAC (Role-Based Access Control)
 ```yaml
-realm: n8n
-accessTokenLifespan: 900
-ssoSessionMaxLifespan: 36000
-bruteForceProtection: true
-passwordPolicy:
-  - length(8)
-  - notUsername
-  - upperCase(1)
-  - lowerCase(1)
-  - digits(1)
-  - specialChars(1)
+roles:
+  admin:
+    - full_access
+    - manage_users
+    - manage_workflows
+    - view_audit_logs
+  
+  workflow_manager:
+    - create_workflows
+    - edit_workflows
+    - execute_workflows
+    - view_logs
+  
+  operator:
+    - execute_workflows
+    - view_workflows
+    - view_own_logs
+  
+  auditor:
+    - view_workflows
+    - view_audit_logs
+    - generate_reports
 ```
 
-### Roles e Permissões
-1. Admin
-   - Acesso total
-   - Gerenciamento de usuários
-   - Configuração do sistema
-
-2. Workflow Manager
-   - Criar/editar workflows
-   - Gerenciar credenciais
-   - Ver execuções
-
-3. Executor
-   - Executar workflows
-   - Ver resultados
-   - Reportar problemas
-
-4. Viewer
-   - Visualizar workflows
-   - Ver métricas básicas
-   - Acessar documentação
-
-## Proteção de Dados
-
-### Criptografia
-1. Em Repouso:
-   - Volumes criptografados
-   - Backups criptografados
-   - Secrets gerenciados
-
-2. Em Trânsito:
-   - TLS 1.3
-   - Certificados gerenciados
-   - Perfect Forward Secrecy
+## 🔒 HashiCorp Vault
 
 ### Secrets Management
-1. Credenciais:
-   - Armazenamento seguro
-   - Rotação automática
-   - Acesso auditado
+- API Keys
+- Credenciais
+- Certificados
+- Tokens
+- Senhas
 
-2. Variáveis de Ambiente:
-   - Encrypted at rest
-   - Least privilege
-   - Version controlled
+### Configuração
+```hcl
+storage "raft" {
+  path = "/vault/data"
+  node_id = "node-a"
+}
 
-## Monitoramento de Segurança
+listener "tcp" {
+  address = "0.0.0.0:8200"
+  tls_disable = 0
+  tls_cert_file = "/vault/certs/tls.crt"
+  tls_key_file = "/vault/certs/tls.key"
+}
 
-### Logging
-1. Audit Logs:
-   - Ações de usuários
-   - Mudanças de sistema
-   - Acessos a dados
+seal "awskms" {
+  region = "us-east-1"
+  kms_key_id = "alias/vault-key"
+}
+```
 
-2. Security Logs:
-   - Tentativas de login
-   - Ações privilegiadas
-   - Alterações de permissões
+### Políticas
+```hcl
+path "secret/data/n8n/*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
+
+path "auth/token/create" {
+  capabilities = ["create", "update"]
+}
+```
+
+## 🛡️ Network Security
+
+### Network Policies
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: n8n-network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: n8n
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: frontend
+    ports:
+    - protocol: TCP
+      port: 5678
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: database
+    ports:
+    - protocol: TCP
+      port: 5432
+```
+
+### TLS/SSL
+- Certificados automáticos com cert-manager
+- Renovação automática
+- Grade A+ no SSL Labs
+- Perfect Forward Secrecy
+
+## 🔍 Auditoria
+
+### Logs de Auditoria
+```yaml
+audit:
+  path: /var/log/n8n/audit
+  retention: 365
+  fields:
+    - timestamp
+    - user
+    - action
+    - resource
+    - status
+    - ip_address
+    - user_agent
+```
+
+### Eventos Monitorados
+1. Autenticação
+   - Login/Logout
+   - Falhas de autenticação
+   - Alterações de senha
+   - MFA events
+
+2. Workflows
+   - Criação
+   - Modificação
+   - Execução
+   - Deleção
+
+3. Configuração
+   - Mudanças de settings
+   - Updates de sistema
+   - Alterações de RBAC
+   - Gestão de secrets
+
+## 🚨 Detecção de Ameaças
+
+### Monitoramento
+- Falhas de autenticação
+- Padrões suspeitos
+- Anomalias de uso
+- Scanning activities
 
 ### Alertas
-1. Segurança:
-   - Tentativas de brute force
-   - Acessos suspeitos
-   - Mudanças críticas
-
-2. Compliance:
-   - Violações de política
-   - Acessos não autorizados
-   - Expiração de certificados
-
-## Network Security
-
-### Firewall Rules
 ```yaml
-ingress:
-  - port: 443
-    source: all
-    protocol: https
-  - port: 8080
-    source: internal
-    protocol: http
+alerts:
+  bruteforce:
+    threshold: 5
+    window: 5m
+    action: block_ip
 
-egress:
-  - port: all
-    destination: internal
-  - port: 443
-    destination: external
-    protocol: https
+  suspicious_access:
+    conditions:
+      - unusual_time
+      - unusual_location
+      - sensitive_resource
+    action: notify_admin
+
+  data_exfiltration:
+    threshold: 1000
+    window: 1h
+    action: block_user
 ```
 
-### Rate Limiting
+## 🔐 Criptografia
+
+### Em Repouso
+- Banco de dados
+- Arquivos
+- Backups
+- Secrets
+
+### Em Trânsito
+- TLS 1.3
+- Strong ciphers
+- Certificate pinning
+- Perfect forward secrecy
+
+## 🛠️ Hardening
+
+### Sistema Operacional
+- Updates automáticos
+- Minimal base image
+- Seccomp profiles
+- AppArmor/SELinux
+
+### Kubernetes
 ```yaml
-global:
-  rate: 1000/minute
-  burst: 50
-
-api:
-  rate: 100/minute
-  burst: 10
-
-auth:
-  rate: 5/minute
-  burst: 3
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
 ```
 
-## Compliance
+### Container
+```dockerfile
+FROM node:alpine
 
-### GDPR/LGPD
-1. Dados Pessoais:
-   - Identificação
-   - Classificação
-   - Proteção
-   - Retenção
+# Security updates
+RUN apk update && apk upgrade
 
-2. Direitos do Usuário:
-   - Acesso
-   - Correção
-   - Exclusão
-   - Portabilidade
+# Non-root user
+USER node
 
-### Auditoria
-1. Registros:
-   - Acesso a dados
-   - Modificações
-   - Exclusões
-   - Exportações
-
-2. Relatórios:
-   - Compliance mensal
-   - Incidentes
-   - Métricas de segurança
-
-## Incident Response
-
-### Plano de Resposta
-1. Detecção:
-   - Monitoramento 24/7
-   - Alertas automáticos
-   - Análise de logs
-
-2. Contenção:
-   - Isolamento
-   - Bloqueio de acesso
-   - Backup de evidências
-
-3. Erradicação:
-   - Remoção de ameaças
-   - Correção de vulnerabilidades
-   - Atualização de sistemas
-
-4. Recuperação:
-   - Restauração de sistemas
-   - Validação de segurança
-   - Monitoramento pós-incidente
-
-### Contatos de Emergência
-```yaml
-security_team:
-  - nome: Security Lead
-    telefone: +XX XX XXXX-XXXX
-    email: security@empresa.com
-
-incident_response:
-  - nome: IR Team Lead
-    telefone: +XX XX XXXX-XXXX
-    email: ir@empresa.com
-
-legal_team:
-  - nome: Legal Counsel
-    telefone: +XX XX XXXX-XXXX
-    email: legal@empresa.com
+# Minimal permissions
+COPY --chown=node:node . .
 ```
 
-## Melhores Práticas
+## 📝 Compliance
+
+### Standards
+- GDPR
+- LGPD
+- SOC2
+- ISO27001
+- PCI DSS
+
+### Processos
+1. Risk Assessment
+   - Regular scans
+   - Penetration tests
+   - Vulnerability assessment
+   - Code review
+
+2. Incident Response
+   - Detection
+   - Containment
+   - Eradication
+   - Recovery
+
+3. Change Management
+   - Approval process
+   - Testing
+   - Rollback plan
+   - Documentation
+
+## 🔄 Backup e Recovery
+
+### Backup Seguro
+```yaml
+backup:
+  encryption:
+    algorithm: AES-256-GCM
+    key_rotation: 90d
+  
+  storage:
+    type: s3
+    bucket: n8n-backups
+    encryption: aws:kms
+    
+  retention:
+    daily: 7
+    weekly: 4
+    monthly: 12
+```
+
+### Disaster Recovery
+1. RPO (Recovery Point Objective): 1h
+2. RTO (Recovery Time Objective): 4h
+3. Teste mensal de recovery
+4. Documentação detalhada
+
+## 📚 Boas Práticas
 
 ### Desenvolvimento Seguro
-1. Code Review:
+1. Code Review
    - Security checks
-   - Dependency scanning
+   - Dependency scan
    - SAST/DAST
+   - Container scan
 
-2. CI/CD Security:
-   - Pipeline scanning
+2. CI/CD Security
+   - Secrets scanning
    - Image scanning
-   - Secret detection
+   - Policy enforcement
+   - Compliance checks
 
 ### Operação Segura
-1. Hardening:
-   - Sistema operacional
-   - Container
-   - Aplicação
+1. Access Management
+   - Least privilege
+   - Regular review
+   - Access logging
+   - Session management
 
-2. Manutenção:
-   - Patches de segurança
-   - Updates regulares
-   - Security baseline
+2. Monitoring
+   - Security events
+   - System metrics
+   - User activity
+   - Resource usage
 
-## Referências
-- [OWASP Top 10](https://owasp.org/www-project-top-ten/)
-- [CIS Benchmarks](https://www.cisecurity.org/cis-benchmarks/)
-- [NIST Cybersecurity Framework](https://www.nist.gov/cyberframework)
-- [GDPR Guidelines](https://gdpr.eu/) 
+## 🎓 Treinamento
+
+### Tópicos
+1. Security Awareness
+   - Phishing
+   - Social engineering
+   - Password security
+   - Data handling
+
+2. Technical Training
+   - Secure coding
+   - Cloud security
+   - Container security
+   - Network security
+
+## 📚 Recursos Adicionais
+
+### Documentação
+- [Security Architecture](docs/security/architecture.md)
+- [Compliance Guide](docs/security/compliance.md)
+- [Incident Response](docs/security/incident-response.md)
+
+### Ferramentas
+- [Security Checklist](tools/security-checklist.md)
+- [Audit Scripts](tools/audit-scripts.md)
+- [Hardening Guide](tools/hardening-guide.md)
+
+### Referências
+- [OWASP Top 10](https://owasp.org/Top10)
+- [CIS Benchmarks](https://www.cisecurity.org/cis-benchmarks)
+- [NIST Cybersecurity Framework](https://www.nist.gov/cyberframework) 

@@ -6,179 +6,297 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Função para log
+# Função para logging
 log() {
-    echo -e "${2:-$YELLOW}[$(date +'%Y-%m-%d %H:%M:%S')] $1${NC}"
+    local level=$1
+    local message=$2
+    local color=$NC
+    
+    case $level in
+        "INFO") color=$GREEN ;;
+        "WARN") color=$YELLOW ;;
+        "ERROR") color=$RED ;;
+    esac
+    
+    echo -e "${color}[$(date +'%Y-%m-%d %H:%M:%S')] [$level] $message${NC}"
 }
 
-# Função para backup de configurações
-backup_configs() {
-    local timestamp=$(date +%Y%m%d_%H%M%S)
-    local backup_dir="backups/config_${timestamp}"
+# Função para validar pré-requisitos
+check_prerequisites() {
+    log "INFO" "Verificando pré-requisitos..."
     
-    log "Criando backup das configurações em ${backup_dir}"
+    # Verificar kubectl
+    if ! command -v kubectl &> /dev/null; then
+        log "ERROR" "kubectl não encontrado"
+        exit 1
+    fi
     
-    mkdir -p "${backup_dir}"
-    cp -r kubernetes/base/* "${backup_dir}/"
-    cp docker-compose.yml "${backup_dir}/"
-    cp .env "${backup_dir}/"
-    
-    echo "${backup_dir}"
-}
-
-# Função para rollback de versão específica
-rollback_version() {
-    local version=$1
-    
-    log "Iniciando rollback para versão ${version}"
-    
-    # Verifica se a versão existe
-    if ! git rev-parse --verify ${version} >/dev/null 2>&1; then
-        log "Versão ${version} não encontrada" "$RED"
-        return 1
+    # Verificar helm
+    if ! command -v helm &> /dev/null; then
+        log "ERROR" "helm não encontrado"
+        exit 1
     }
     
-    # Backup atual
-    local backup_dir=$(backup_configs)
-    
-    # Checkout da versão
-    if git checkout ${version}; then
-        log "Checkout para versão ${version} realizado com sucesso" "$GREEN"
-        
-        # Atualiza dependências
-        if [ -f "requirements.txt" ]; then
-            pip install -r requirements.txt
-        fi
-        
-        # Aplica configurações do Kubernetes
-        kubectl apply -k kubernetes/base/
-        
-        # Reinicia serviços
-        docker-compose down
-        docker-compose up -d
-        
-        log "Rollback concluído com sucesso" "$GREEN"
-        return 0
-    else
-        log "Falha no checkout para versão ${version}" "$RED"
-        return 1
+    # Verificar terraform
+    if ! command -v terraform &> /dev/null; then
+        log "ERROR" "terraform não encontrado"
+        exit 1
     fi
+    
+    # Verificar argocd
+    if ! command -v argocd &> /dev/null; then
+        log "ERROR" "argocd não encontrado"
+        exit 1
+    fi
+    
+    log "INFO" "Todos os pré-requisitos encontrados"
 }
 
-# Função para rollback de componente específico
-rollback_component() {
+# Função para backup
+backup() {
     local component=$1
     local version=$2
+    local timestamp=$(date +%Y%m%d_%H%M%S)
+    local backup_dir="backups/${component}_${version}_${timestamp}"
     
-    log "Iniciando rollback do componente ${component} para versão ${version}"
+    log "INFO" "Iniciando backup do componente $component versão $version"
     
-    case ${component} in
-        "ai-analytics")
-            kubectl rollout undo deployment/predictive-analytics -n n8n
+    # Criar diretório de backup
+    mkdir -p "$backup_dir"
+    
+    case $component in
+        "n8n")
+            # Backup do n8n
+            kubectl get deployment n8n -n n8n -o yaml > "$backup_dir/deployment.yaml"
+            kubectl get configmap n8n-config -n n8n -o yaml > "$backup_dir/configmap.yaml"
+            kubectl get secret n8n-secrets -n n8n -o yaml > "$backup_dir/secrets.yaml"
             ;;
-        "vault")
-            kubectl rollout undo statefulset/vault -n n8n
-            ;;
-        "opentelemetry")
-            kubectl rollout undo deployment/otel-collector -n n8n
-            ;;
+            
         "gpt")
-            kubectl rollout undo deployment/gpt-service -n n8n
+            # Backup do GPT Service
+            kubectl get deployment gpt-service -n n8n -o yaml > "$backup_dir/deployment.yaml"
+            kubectl get configmap gpt-config -n n8n -o yaml > "$backup_dir/configmap.yaml"
             ;;
+            
+        "vault")
+            # Backup do Vault
+            kubectl get statefulset vault -n n8n -o yaml > "$backup_dir/statefulset.yaml"
+            kubectl get configmap vault-config -n n8n -o yaml > "$backup_dir/configmap.yaml"
+            vault operator raft snapshot save "$backup_dir/vault.snap"
+            ;;
+            
+        "otel")
+            # Backup do OpenTelemetry
+            kubectl get deployment otel-collector -n n8n -o yaml > "$backup_dir/deployment.yaml"
+            kubectl get configmap otel-collector-config -n n8n -o yaml > "$backup_dir/configmap.yaml"
+            ;;
+            
         "federation")
-            kubectl rollout undo deployment/federation-controller -n n8n
+            # Backup da Federation
+            kubectl get deployment federation-controller -n n8n -o yaml > "$backup_dir/deployment.yaml"
+            kubectl get configmap federation-config -n n8n -o yaml > "$backup_dir/configmap.yaml"
             ;;
+            
+        "ai-analytics")
+            # Backup do AI Analytics
+            kubectl get deployment ai-analytics -n n8n -o yaml > "$backup_dir/deployment.yaml"
+            kubectl get configmap ai-analytics-config -n n8n -o yaml > "$backup_dir/configmap.yaml"
+            ;;
+            
+        "infrastructure")
+            # Backup da infraestrutura
+            terraform state pull > "$backup_dir/terraform.tfstate"
+            cp terraform/main.tf "$backup_dir/"
+            cp terraform/variables.tf "$backup_dir/"
+            ;;
+            
+        "helm")
+            # Backup das releases Helm
+            helm list -n n8n -o yaml > "$backup_dir/helm_releases.yaml"
+            cp -r helm/* "$backup_dir/"
+            ;;
+            
+        "argocd")
+            # Backup do ArgoCD
+            kubectl get application -n argocd -o yaml > "$backup_dir/applications.yaml"
+            cp -r argocd/* "$backup_dir/"
+            ;;
+            
         *)
-            log "Componente ${component} não reconhecido" "$RED"
-            return 1
+            log "ERROR" "Componente $component não suportado"
+            exit 1
             ;;
     esac
     
-    log "Rollback do componente ${component} concluído" "$GREEN"
+    # Compactar backup
+    tar -czf "${backup_dir}.tar.gz" "$backup_dir"
+    rm -rf "$backup_dir"
+    
+    log "INFO" "Backup concluído: ${backup_dir}.tar.gz"
 }
 
-# Função para restaurar backup
-restore_backup() {
-    local backup_dir=$1
+# Função para rollback
+rollback() {
+    local component=$1
+    local version=$2
+    local backup_file=$(find backups -name "${component}_${version}_*.tar.gz" | sort -r | head -n1)
     
-    if [ ! -d "${backup_dir}" ]; then
-        log "Diretório de backup ${backup_dir} não encontrado" "$RED"
-        return 1
-    }
-    
-    log "Restaurando backup de ${backup_dir}"
-    
-    # Restaura configurações
-    cp -r "${backup_dir}"/* kubernetes/base/
-    cp "${backup_dir}/docker-compose.yml" ./
-    cp "${backup_dir}/.env" ./
-    
-    # Aplica configurações
-    kubectl apply -k kubernetes/base/
-    
-    # Reinicia serviços
-    docker-compose down
-    docker-compose up -d
-    
-    log "Restauração concluída com sucesso" "$GREEN"
-}
-
-# Função para verificar estado dos serviços
-check_services() {
-    log "Verificando estado dos serviços"
-    
-    # Verifica pods
-    kubectl get pods -n n8n
-    
-    # Verifica serviços do Docker
-    docker-compose ps
-    
-    # Verifica endpoints
-    curl -s -o /dev/null -w "%{http_code}" http://localhost:5678/healthz
-    local n8n_status=$?
-    
-    curl -s -o /dev/null -w "%{http_code}" http://localhost:8200/v1/sys/health
-    local vault_status=$?
-    
-    if [ ${n8n_status} -eq 200 ] && [ ${vault_status} -eq 200 ]; then
-        log "Todos os serviços estão funcionando" "$GREEN"
-        return 0
-    else
-        log "Alguns serviços não estão respondendo corretamente" "$RED"
-        return 1
+    if [ -z "$backup_file" ]; then
+        log "ERROR" "Backup não encontrado para $component versão $version"
+        exit 1
     fi
+    
+    log "INFO" "Iniciando rollback do componente $component para versão $version"
+    
+    # Extrair backup
+    local temp_dir=$(mktemp -d)
+    tar -xzf "$backup_file" -C "$temp_dir"
+    local backup_dir=$(ls "$temp_dir")
+    
+    case $component in
+        "n8n")
+            kubectl apply -f "$temp_dir/$backup_dir/deployment.yaml"
+            kubectl apply -f "$temp_dir/$backup_dir/configmap.yaml"
+            kubectl apply -f "$temp_dir/$backup_dir/secrets.yaml"
+            ;;
+            
+        "gpt")
+            kubectl apply -f "$temp_dir/$backup_dir/deployment.yaml"
+            kubectl apply -f "$temp_dir/$backup_dir/configmap.yaml"
+            ;;
+            
+        "vault")
+            kubectl apply -f "$temp_dir/$backup_dir/statefulset.yaml"
+            kubectl apply -f "$temp_dir/$backup_dir/configmap.yaml"
+            vault operator raft snapshot restore "$temp_dir/$backup_dir/vault.snap"
+            ;;
+            
+        "otel")
+            kubectl apply -f "$temp_dir/$backup_dir/deployment.yaml"
+            kubectl apply -f "$temp_dir/$backup_dir/configmap.yaml"
+            ;;
+            
+        "federation")
+            kubectl apply -f "$temp_dir/$backup_dir/deployment.yaml"
+            kubectl apply -f "$temp_dir/$backup_dir/configmap.yaml"
+            ;;
+            
+        "ai-analytics")
+            kubectl apply -f "$temp_dir/$backup_dir/deployment.yaml"
+            kubectl apply -f "$temp_dir/$backup_dir/configmap.yaml"
+            ;;
+            
+        "infrastructure")
+            terraform init
+            terraform state push "$temp_dir/$backup_dir/terraform.tfstate"
+            terraform apply -auto-approve
+            ;;
+            
+        "helm")
+            # Rollback das releases Helm
+            while IFS= read -r release; do
+                name=$(echo "$release" | yq e '.name' -)
+                revision=$(echo "$release" | yq e '.revision' -)
+                helm rollback "$name" "$revision" -n n8n
+            done < "$temp_dir/$backup_dir/helm_releases.yaml"
+            ;;
+            
+        "argocd")
+            kubectl apply -f "$temp_dir/$backup_dir/applications.yaml"
+            argocd app sync -l argocd.argoproj.io/instance=n8n-enterprise
+            ;;
+            
+        *)
+            log "ERROR" "Componente $component não suportado"
+            exit 1
+            ;;
+    esac
+    
+    # Limpar arquivos temporários
+    rm -rf "$temp_dir"
+    
+    log "INFO" "Rollback concluído com sucesso"
 }
 
-# Função principal
-main() {
-    local action=$1
-    local target=$2
-    local version=$3
+# Função para verificar status
+check_status() {
+    local component=$1
     
-    case ${action} in
-        "version")
-            rollback_version ${target}
+    log "INFO" "Verificando status do componente $component"
+    
+    case $component in
+        "n8n")
+            kubectl get deployment n8n -n n8n
             ;;
-        "component")
-            rollback_component ${target} ${version}
+            
+        "gpt")
+            kubectl get deployment gpt-service -n n8n
             ;;
-        "restore")
-            restore_backup ${target}
+            
+        "vault")
+            kubectl get statefulset vault -n n8n
+            vault status
             ;;
-        "check")
-            check_services
+            
+        "otel")
+            kubectl get deployment otel-collector -n n8n
             ;;
+            
+        "federation")
+            kubectl get deployment federation-controller -n n8n
+            ;;
+            
+        "ai-analytics")
+            kubectl get deployment ai-analytics -n n8n
+            ;;
+            
+        "infrastructure")
+            terraform show
+            ;;
+            
+        "helm")
+            helm list -n n8n
+            ;;
+            
+        "argocd")
+            argocd app list
+            ;;
+            
         *)
-            echo "Uso: $0 [version|component|restore|check] [target] [version]"
-            echo "Exemplos:"
-            echo "  $0 version v1.0.0"
-            echo "  $0 component ai-analytics v1.1.0"
-            echo "  $0 restore backups/config_20240101_120000"
-            echo "  $0 check"
+            log "ERROR" "Componente $component não suportado"
             exit 1
             ;;
     esac
 }
 
-# Executa função principal
+# Função principal
+main() {
+    local action=$1
+    local component=$2
+    local version=$3
+    
+    check_prerequisites
+    
+    case $action in
+        "backup")
+            backup "$component" "$version"
+            ;;
+            
+        "rollback")
+            rollback "$component" "$version"
+            ;;
+            
+        "status")
+            check_status "$component"
+            ;;
+            
+        *)
+            log "ERROR" "Ação $action não suportada"
+            echo "Uso: $0 {backup|rollback|status} {n8n|gpt|vault|otel|federation|ai-analytics|infrastructure|helm|argocd} [version]"
+            exit 1
+            ;;
+    esac
+}
+
+# Executar script
 main "$@" 

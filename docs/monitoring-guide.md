@@ -1,282 +1,283 @@
-# Guia de Monitoramento - n8n Enterprise
+# Guia de Monitoramento
 
-## Visão Geral
-Este guia detalha a estratégia de monitoramento implementada no ambiente n8n Enterprise.
+Este guia detalha o sistema de monitoramento do ambiente n8n enterprise, incluindo métricas, alertas e dashboards.
 
-## Arquitetura de Monitoramento
+## 📊 Stack de Monitoramento
 
-```mermaid
-graph TD
-    A[n8n] --> B[Prometheus]
-    C[PostgreSQL] --> B
-    D[Redis] --> B
-    E[Keycloak] --> B
-    F[Business Metrics] --> G[Pushgateway]
-    G --> B
-    B --> H[Grafana]
-    H --> I[Alertmanager]
-    I --> J[Email]
-    I --> K[Slack]
-    I --> L[PagerDuty]
-```
+### Componentes
+- Prometheus: Coleta de métricas
+- Grafana: Visualização
+- OpenTelemetry: Tracing distribuído
+- AlertManager: Gerenciamento de alertas
+- Jaeger: Tracing detalhado
 
-## Métricas Coletadas
+## 🔍 Métricas Coletadas
 
-### Sistema
+### 1. n8n Core
+- Execuções de workflows
+  - Taxa de sucesso/erro
+  - Tempo de execução
+  - Quantidade por período
+- Performance
+  - Uso de CPU
+  - Uso de memória
+  - Latência
+- Conexões
+  - Status das integrações
+  - Tempo de resposta
+  - Taxa de erro
+
+### 2. Banco de Dados
+- PostgreSQL
+  - Conexões ativas
+  - Query performance
+  - Tempo de resposta
+  - Uso de disco
+- Redis
+  - Hit rate
+  - Uso de memória
+  - Conexões
+  - Latência
+
+### 3. Serviços de IA
+- GPT Service
+  - Requisições por minuto
+  - Tempo de resposta
+  - Custo por request
+  - Taxa de erro
+- AI Analytics
+  - Performance dos modelos
+  - Tempo de processamento
+  - Uso de recursos
+  - Precisão
+
+### 4. Infraestrutura
+- Kubernetes
+  - Pod status
+  - Node health
+  - Resource utilization
+  - Network metrics
+- AWS
+  - EKS metrics
+  - S3 usage
+  - Cost metrics
+  - Service health
+
+## ⚡ Alertas
+
+### Configuração
 ```yaml
-system_metrics:
-  - cpu_usage
-  - memory_usage
-  - disk_usage
-  - network_io
-  - process_count
+groups:
+  - name: n8n_alerts
+    rules:
+      - alert: HighErrorRate
+        expr: rate(n8n_workflow_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          description: "Taxa de erro acima de 10% nos últimos 5 minutos"
+
+      - alert: HighLatency
+        expr: n8n_workflow_execution_time_seconds > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          description: "Workflows demorando mais de 30 segundos para executar"
 ```
 
-### Aplicação
-```yaml
-n8n_metrics:
-  - workflow_executions
-  - execution_time
-  - error_rate
-  - active_workflows
-  - webhook_calls
-```
+### Níveis de Severidade
+1. Critical
+   - Sistema indisponível
+   - Perda de dados
+   - Falha de segurança
 
-### Banco de Dados
-```yaml
-postgres_metrics:
-  - connections
-  - transactions
-  - query_time
-  - table_size
-  - index_usage
-```
+2. Warning
+   - Performance degradada
+   - Recursos próximos do limite
+   - Erros não críticos
 
-### Cache
-```yaml
-redis_metrics:
-  - hit_rate
-  - memory_usage
-  - connected_clients
-  - commands_processed
-  - evicted_keys
-```
+3. Info
+   - Eventos normais
+   - Manutenção programada
+   - Updates disponíveis
 
-## Dashboards
+### Notificações
+- Slack
+- Email
+- SMS
+- PagerDuty
+- Teams
 
-### Overview
-- Status geral do sistema
+## 📈 Dashboards
+
+### 1. Overview
+- Status geral
 - Métricas principais
 - Alertas ativos
 - Tendências
 
-### Performance
-- Latência
-- Throughput
-- Recursos
-- Bottlenecks
+### 2. Workflows
+- Performance
+- Taxa de sucesso
+- Tempo de execução
+- Erros comuns
 
-### Workflows
-- Execuções
-- Erros
-- Duração
-- Success rate
+### 3. Recursos
+- Uso de CPU
+- Uso de memória
+- Disco
+- Network
 
-### Business
-- KPIs
-- ROI
+### 4. Custos
+- Por serviço
+- Por workflow
 - Tendências
 - Previsões
 
-## Alertas
+## 🔄 Monitoramento em Tempo Real
 
-### Configuração
-```yaml
-alerts:
-  high_cpu:
-    threshold: 80%
-    duration: 5m
-    severity: warning
-  
-  high_memory:
-    threshold: 85%
-    duration: 5m
-    severity: warning
-  
-  error_rate:
-    threshold: 5%
-    duration: 15m
-    severity: critical
-  
-  disk_space:
-    threshold: 90%
-    duration: 1h
-    severity: warning
+### Script de Monitoramento
+```bash
+./scripts/monitor.sh [opções]
 ```
 
-### Severidade
-1. Critical
-   - Sistema indisponível
-   - Perda de dados
-   - Violação de segurança
+Opções:
+- `--interval`: Intervalo de check (default: 5m)
+- `--components`: Componentes específicos
+- `--metrics`: Métricas específicas
+- `--output`: Formato de saída
 
-2. Warning
-   - Performance degradada
-   - Erros não críticos
-   - Recursos limitados
+### Verificações
+1. Health Check
+   ```bash
+   ./scripts/monitor.sh --check health
+   ```
 
-3. Info
-   - Eventos normais
-   - Manutenção
-   - Updates
+2. Performance
+   ```bash
+   ./scripts/monitor.sh --check performance
+   ```
 
-### Notificações
-```yaml
-channels:
-  email:
-    to: team@empresa.com
-    from: monitoring@empresa.com
-    
-  slack:
-    channel: #monitoring
-    mentions: @oncall
-    
-  pagerduty:
-    service_key: XXX
-    escalation_policy: standard
-```
+3. Recursos
+   ```bash
+   ./scripts/monitor.sh --check resources
+   ```
 
-## Business Metrics
-
-### Coleta
-1. Workflow Value:
-   - ROI por workflow
-   - Tempo economizado
-   - Recursos otimizados
-
-2. User Activity:
-   - Usuários ativos
-   - Workflows criados
-   - Execuções por usuário
-
-3. Integration Health:
-   - Disponibilidade
-   - Taxa de sucesso
-   - Tempo de resposta
-
-### Visualização
-```yaml
-dashboards:
-  business:
-    - name: "Business Value"
-      metrics:
-        - total_value_generated
-        - cost_savings
-        - efficiency_gains
-    
-    - name: "User Engagement"
-      metrics:
-        - active_users
-        - workflow_creation_rate
-        - user_satisfaction
-    
-    - name: "Integration Performance"
-      metrics:
-        - integration_uptime
-        - response_times
-        - error_rates
-```
-
-## Logs
+## 📝 Logs
 
 ### Estrutura
-```yaml
-log_format:
-  timestamp: ISO8601
-  level: string
-  service: string
-  message: string
-  metadata:
-    user: string
-    workflow: string
-    execution_id: string
-    error: object
+```
+/var/log/n8n/
+├── workflows/
+│   ├── errors/
+│   ├── performance/
+│   └── audit/
+├── system/
+│   ├── kubernetes/
+│   ├── database/
+│   └── cache/
+└── services/
+    ├── gpt/
+    ├── ai-analytics/
+    └── federation/
 ```
 
 ### Retenção
-```yaml
-retention_policy:
-  error_logs: 90 days
-  audit_logs: 365 days
-  performance_logs: 30 days
-  system_logs: 60 days
-```
+- Logs operacionais: 30 dias
+- Logs de performance: 90 dias
+- Logs de auditoria: 1 ano
 
-## Performance Monitoring
+### Agregação
+- ELK Stack
+- Cloudwatch
+- Loki
 
-### APM
-1. Traces:
-   - Request flow
-   - Database queries
-   - External calls
+## 🔍 Troubleshooting
 
-2. Profiling:
-   - CPU usage
-   - Memory allocation
-   - I/O operations
+### Ferramentas
+1. Diagnóstico
+   ```bash
+   ./scripts/monitor.sh --diagnose <componente>
+   ```
 
-3. Error Tracking:
-   - Stack traces
-   - Error context
-   - Impact analysis
+2. Debug
+   ```bash
+   ./scripts/monitor.sh --debug <workflow-id>
+   ```
 
-### Capacity Planning
-```yaml
-thresholds:
-  cpu_warning: 70%
-  cpu_critical: 85%
-  memory_warning: 75%
-  memory_critical: 90%
-  disk_warning: 80%
-  disk_critical: 90%
-```
+3. Trace
+   ```bash
+   ./scripts/monitor.sh --trace <request-id>
+   ```
 
-## Manutenção
-
-### Rotinas
-1. Diárias:
+### Procedimentos
+1. Identificação
    - Verificar alertas
-   - Validar backups
-   - Checar logs
+   - Analisar logs
+   - Coletar métricas
 
-2. Semanais:
-   - Análise de tendências
-   - Ajuste de thresholds
-   - Limpeza de dados
+2. Isolamento
+   - Identificar componente
+   - Verificar dependências
+   - Testar conectividade
 
-3. Mensais:
-   - Revisão de dashboards
-   - Otimização de queries
-   - Relatórios gerenciais
+3. Resolução
+   - Aplicar fix
+   - Validar solução
+   - Documentar processo
 
-### Troubleshooting
-1. Coleta de dados:
-   - Logs relevantes
-   - Métricas específicas
-   - Estado do sistema
+## 📊 Relatórios
 
-2. Análise:
-   - Correlação de eventos
-   - Identificação de causa raiz
-   - Impacto assessment
+### Tipos
+1. Performance
+   - Tempo de resposta
+   - Throughput
+   - Erros
 
-3. Resolução:
-   - Ações corretivas
-   - Validação
-   - Documentação
+2. Utilização
+   - Recursos
+   - Workflows
+   - Integrações
 
-## Referências
-- [Prometheus Docs](https://prometheus.io/docs/)
-- [Grafana Best Practices](https://grafana.com/docs/grafana/latest/best-practices/)
-- [APM Methodology](https://www.elastic.co/guide/en/apm/guide/current/index.html)
-- [SRE Book](https://sre.google/sre-book/monitoring-distributed-systems/) 
+3. Custos
+   - Por serviço
+   - Por workflow
+   - Tendências
+
+### Agendamento
+- Diário: Métricas básicas
+- Semanal: Performance
+- Mensal: Custos e tendências
+
+## 🔐 Segurança
+
+### Monitoramento
+- Tentativas de acesso
+- Mudanças de configuração
+- Uso de credenciais
+- Atividades suspeitas
+
+### Compliance
+- GDPR
+- LGPD
+- SOC2
+- ISO27001
+
+## 📚 Recursos Adicionais
+
+### Documentação
+- [Prometheus Queries](docs/monitoring/prometheus.md)
+- [Grafana Dashboards](docs/monitoring/grafana.md)
+- [Alert Rules](docs/monitoring/alerts.md)
+
+### Exemplos
+- [PromQL Examples](examples/promql.md)
+- [Dashboard Templates](examples/dashboards.md)
+- [Alert Templates](examples/alerts.md)
+
+### Referências
+- [Best Practices](docs/monitoring/best-practices.md)
+- [Troubleshooting Guide](docs/monitoring/troubleshooting.md)
+- [Scaling Guide](docs/monitoring/scaling.md) 
