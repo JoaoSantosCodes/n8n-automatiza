@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: n8n
+
+resources:
+  - namespace.yaml
+  - n8n-deployment.yaml
+  - n8n-service.yaml
+  - n8n-ingress.yaml
+  - postgres-statefulset.yaml
+  - redis-statefulset.yaml
+
+configMapGenerator:
+  - name: n8n-config
+    literals:
+      - db_host=postgres
+      - db_name=n8n
+  - name: redis-config
+    files:
+      - redis.conf
+
+secretGenerator:
+  - name: n8n-secrets
+    literals:
+      - db_user=n8n
+      - db_password=changeme
+      - encryption_key=changeme
+
+images:
+  - name: n8nio/n8n
+    newTag: latest
+  - name: postgres
+    newTag: 13-alpine
+  - name: redis
+    newTag: 6-alpine 
