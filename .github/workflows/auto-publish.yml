@@ -57,7 +57,7 @@ jobs:
           done
 
       - name: Validate Markdown
-        uses: nosborn/github-action-markdown-cli@v3.2.0
+        uses: nosborn/github-action-markdown-cli@v3.5.0
         with:
           files: ./*.md ./docs/*.md
 
